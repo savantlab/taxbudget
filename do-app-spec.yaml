@@ -23,7 +23,7 @@ services:
       branch: main
       deploy_on_push: true
     
-    dockerfile_path: Dockerfile
+    dockerfile_path: Dockerfile.prod
     
     envs:
       - key: DEBUG
@@ -61,7 +61,7 @@ workers:
       repo: savantlab/taxbudget
       branch: main
     
-    dockerfile_path: Dockerfile
+    dockerfile_path: Dockerfile.prod
     
     run_command: celery -A taxbudget worker --loglevel=info --concurrency=2
     
@@ -86,7 +86,7 @@ workers:
       repo: savantlab/taxbudget
       branch: main
     
-    dockerfile_path: Dockerfile
+    dockerfile_path: Dockerfile.prod
     
     run_command: celery -A taxbudget beat --loglevel=info
     
