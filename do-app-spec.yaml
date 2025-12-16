@@ -34,13 +34,13 @@ services:
       - key: DATABASE_URL
         value: ${db.DATABASE_URL}
       - key: REDIS_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: ALLOWED_HOSTS
         value: "yourdomain.com,www.yourdomain.com"
       - key: CELERY_BROKER_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: CELERY_RESULT_BACKEND
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
     
     http_port: 8000
     
@@ -69,11 +69,11 @@ workers:
       - key: DATABASE_URL
         value: ${db.DATABASE_URL}
       - key: REDIS_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: CELERY_RESULT_BACKEND
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: SECRET_KEY
         scope: RUN_TIME
         type: SECRET
@@ -94,11 +94,11 @@ workers:
       - key: DATABASE_URL
         value: ${db.DATABASE_URL}
       - key: REDIS_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: CELERY_RESULT_BACKEND
-        value: "redis://10.108.0.3:6379/0"
+        value: "redis://159.65.255.161:6379/0"
       - key: SECRET_KEY
         scope: RUN_TIME
         type: SECRET
