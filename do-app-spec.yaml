@@ -22,8 +22,7 @@ services:
       - key: DEBUG
         value: "True"
       - key: SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
+        value: "IflWXuOV1SR4i7MTGdamj7Q/w8BJYLJsIWVDbv0GMY9wl05JZhAloEu3E+gJROeZ"
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: ALLOWED_HOSTS
@@ -56,8 +55,7 @@ workers:
       - key: CELERY_RESULT_BACKEND
         value: "redis://159.65.255.161:6379/0"
       - key: SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
+        value: "IflWXuOV1SR4i7MTGdamj7Q/w8BJYLJsIWVDbv0GMY9wl05JZhAloEu3E+gJROeZ"
     
     instance_count: 1
     instance_size_slug: basic-xs
@@ -79,8 +77,7 @@ workers:
       - key: CELERY_RESULT_BACKEND
         value: "redis://159.65.255.161:6379/0"
       - key: SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
+        value: "IflWXuOV1SR4i7MTGdamj7Q/w8BJYLJsIWVDbv0GMY9wl05JZhAloEu3E+gJROeZ"
     
     instance_count: 1
     instance_size_slug: basic-xxs
