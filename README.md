@@ -263,7 +263,7 @@ This app is production-ready and optimized for scale:
 - **Workers:** Celery worker + Celery beat (background task processing)
 - **Redis:** DigitalOcean droplet at 159.65.255.161 (caching & queue)
 - **Database:** SQLite (in-container, suitable for current scale)
-- **CDN:** Cloudflare (automatic via DigitalOcean)
+- **Network:** DigitalOcean App Platform managed infrastructure
 
 #### Performance Metrics
 - **Cold Start:** < 2 minutes from code push to live
@@ -277,7 +277,7 @@ This app is production-ready and optimized for scale:
 - **Cost-effective:** $45/month managed infrastructure (vs $200+ for equivalent AWS)
 - **Production-hardened:** DEBUG=False, SECRET_KEY secured, CSRF protection enabled
 - **Scalability ready:** Redis caching + Celery workers handle async tasks
-- **CDN-accelerated:** Static assets and responses cached at edge locations
+- **Managed platform:** DigitalOcean handles load balancing and routing
 
 #### Technical Highlights
 - **Django 6.0** with production WSGI configuration
@@ -300,7 +300,6 @@ This app is production-ready and optimized for scale:
 - **DNS Records:** A records (172.66.0.96, 162.159.140.98) + CNAME for www
 - **Status:** Configured, awaiting propagation (5-30 minutes)
 - **SSL:** Let's Encrypt certificates auto-provisioned once DNS resolves
-- **CDN:** Cloudflare edge network for global distribution
 
 #### Next Steps for Scale
 - Switch to managed PostgreSQL for multi-instance deployments
