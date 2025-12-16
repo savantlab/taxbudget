@@ -20,7 +20,7 @@ services:
     
     envs:
       - key: DEBUG
-        value: "True"
+        value: "False"
       - key: SECRET_KEY
         value: "IflWXuOV1SR4i7MTGdamj7Q/w8BJYLJsIWVDbv0GMY9wl05JZhAloEu3E+gJROeZ"
       - key: REDIS_URL
