@@ -1,13 +1,13 @@
 name: taxbudget
 region: nyc
 
-# domains:
-#   - domain: yourdomain.com
-#     type: PRIMARY
-#     wildcard: false
-#   - domain: www.yourdomain.com
-#     type: ALIAS
-#     wildcard: false
+domains:
+  - domain: tadpollster.com
+    type: PRIMARY
+    wildcard: false
+  - domain: www.tadpollster.com
+    type: ALIAS
+    wildcard: false
 
 services:
   - name: web
@@ -26,7 +26,7 @@ services:
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: ALLOWED_HOSTS
-        value: "*"
+        value: "tadpollster.com,www.tadpollster.com,tadpollster-5n42q.ondigitalocean.app"
       - key: CELERY_BROKER_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_RESULT_BACKEND
