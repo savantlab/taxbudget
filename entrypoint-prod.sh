@@ -4,6 +4,9 @@ set -e
 echo "Running migrations..."
 python manage.py migrate --noinput
 
+echo "Populating budget categories..."
+python manage.py populate_categories
+
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
