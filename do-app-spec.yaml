@@ -37,6 +37,9 @@ services:
         value: "redis://159.65.255.161:6379/0"
       - key: ALLOWED_HOSTS
         value: "*"
+      - key: TAXBUDGET_DB_URL
+        scope: RUN_TIME
+        type: SECRET
       - key: CELERY_BROKER_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_RESULT_BACKEND
@@ -66,8 +69,6 @@ workers:
     run_command: celery -A taxbudget worker --loglevel=info --concurrency=2
     
     envs:
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
@@ -91,8 +92,6 @@ workers:
     run_command: celery -A taxbudget beat --loglevel=info
     
     envs:
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
