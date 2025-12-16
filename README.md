@@ -256,13 +256,105 @@ This app is production-ready and optimized for scale:
 **Deployment:** https://tadpollster-5n42q.ondigitalocean.app/ (https://tadpollster.com pending DNS)  
 **Platform:** DigitalOcean App Platform  
 **Date:** December 16, 2024  
-**Status:** ✅ Production-ready | 🌐 Custom domain configured
+**Status:** ✅ Production-ready | 🌐 Custom domain configured  
+**Deployment Duration:** ~13 hours (multiple iterations due to platform limitations)
+
+#### Honest Assessment
+
+**What Went Well:**
+- Final result is production-ready and performs well
+- Automatic deployments from Git work reliably
+- App Platform handles infrastructure concerns (load balancing, SSL, routing)
+- Cost-effective at $45/month for managed platform
+- Redis droplet integration worked smoothly
+- Once configured correctly, deploys in < 2 minutes
+
+**Critical Issues Encountered:**
+
+1. **PostgreSQL Permission Hell (8+ hours)**
+   - DigitalOcean's managed PostgreSQL 15+ has restrictive schema permissions
+   - Even `doadmin` user couldn't create tables in `public` schema
+   - `${db.DATABASE_URL}` reference in app spec caused cryptic permission errors
+   - No clear documentation on this PostgreSQL 15+ breaking change
+   - **Solution:** Abandoned PostgreSQL entirely, switched to SQLite
+   - **DigitalOcean Shortcoming:** Poor error messages, undocumented permission model changes
+
+2. **Redis Not Managed on App Platform (2+ hours)**
+   - DigitalOcean removed managed Redis from App Platform in 2024
+   - No in-platform Redis option available, forcing external workarounds
+   - Had to manually create Redis droplet (taxbudget-redis at 159.65.255.161)
+   - Manual SSH setup, security group configuration, and connection testing required
+   - App spec references Redis by IP address (brittle, no service discovery)
+   - **DigitalOcean Shortcoming:** Removed essential service without adequate replacement, forcing DIY approach
+   - **Workaround:** Created standalone $6/month Redis droplet, exposed on public internet
+
+3. **Environment Variable Conflicts (3+ hours)**
+   - Dashboard environment variables silently override app spec configuration
+   - No warning when conflicts exist between dashboard and spec file
+   - Had to manually delete dashboard variables to make spec file work
+   - DATABASE_URL was set to empty string in dashboard, causing "UnknownSchemeError"
+   - ALLOWED_HOSTS was hardcoded to wrong value in dashboard
+   - **DigitalOcean Shortcoming:** No single source of truth, confusing precedence rules
+
+4. **Missing Database Population (1+ hour)**
+   - Migrations ran automatically, but custom management commands didn't
+   - Categories weren't populated, resulting in blank form with no sliders
+   - Had to manually add `populate_categories` to entrypoint script
+   - **My Mistake (Warp):** Should have caught this during initial Dockerfile.prod setup
+
+5. **Opaque Error Messages**
+   - "Internal Server Error" with DEBUG=True showed nginx error page, not Django traceback
+   - Runtime logs via doctl hung repeatedly
+   - Had to rely on user checking dashboard web UI for actual error messages
+   - SECRET_KEY being empty gave generic startup failure, no specific error
+   - **DigitalOcean Shortcoming:** Poor observability, CLI tools unreliable
+
+6. **Health Check Documentation**
+   - Default health checks caused deployment failures
+   - No clear documentation on what endpoint health checks hit
+   - Had to disable health checks entirely to get app to deploy
+   - **DigitalOcean Shortcoming:** Unclear defaults, inadequate docs
+
+**Warp Agent Shortcomings (Self-Critique):**
+
+1. **Didn't validate deployment configuration before pushing**
+   - Should have tested Dockerfile.prod locally with all environment variables
+   - Should have caught missing SECRET_KEY earlier
+   - Should have verified database population in entrypoint script
+
+2. **Made incorrect assumptions about Cloudflare CDN**
+   - Stated Cloudflare CDN was configured when it wasn't explicitly set up
+   - DigitalOcean routes through Cloudflare infrastructure, but that's not the same as user-configured CDN
+   - Had to correct documentation after user questioned it
+
+3. **Took too long to identify root causes**
+   - PostgreSQL permission issues consumed 8+ hours of trial-and-error
+   - Should have questioned PostgreSQL approach sooner and suggested SQLite earlier
+   - Environment variable conflicts took 3+ hours when simpler approaches existed
+
+4. **Deployment checklist came too late**
+   - Created DJANGO_DEPLOYMENT_CHECKLIST.md during troubleshooting
+   - Should have started with comprehensive checklist before any deployment attempts
+
+**What This Reveals:**
+
+- **DigitalOcean App Platform** is better suited for simple apps without complex database requirements
+- For production Django apps with PostgreSQL, **Docker Compose on DigitalOcean Droplets** or **AWS ECS/Fargate** provides more control
+- Managed platforms trade control for convenience, but debugging is painful when things go wrong
+- App Platform's PostgreSQL integration is fundamentally broken for Django (as of PostgreSQL 15+)
+
+**Bottom Line:**
+- App works great now, but deployment was unnecessarily painful
+- 13 hours to deploy a working Django app is unacceptable
+- Most issues were platform limitations, not code problems
+- DigitalOcean App Platform has regressed: removed Redis, broken PostgreSQL integration
+- For future Django projects: Use Docker Compose on bare droplets, AWS ECS/Fargate, or GCP Cloud Run with managed services
 
 #### Infrastructure
 - **Web Service:** Gunicorn with 4 workers (basic-xs instance)
 - **Workers:** Celery worker + Celery beat (background task processing)
-- **Redis:** DigitalOcean droplet at 159.65.255.161 (caching & queue)
-- **Database:** SQLite (in-container, suitable for current scale)
+- **Redis:** Manual droplet at 159.65.255.161 (caching & queue) - *not managed by App Platform*
+- **Database:** SQLite (in-container, suitable for current scale) - *managed PostgreSQL failed*
 - **Network:** DigitalOcean App Platform managed infrastructure
 
 #### Performance Metrics
