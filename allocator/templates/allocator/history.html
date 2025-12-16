@@ -1,0 +1,82 @@
+{% extends "allocator/base.html" %}
+
+{% block title %}My Submission History{% endblock %}
+
+{% block content %}
+<h1 class="text-center mb-4">📊 My Submission History</h1>
+<p class="lead text-center text-muted mb-4">
+    You have submitted {{ total_submissions }} allocation{{ total_submissions|pluralize }}.
+</p>
+
+{% if submission_data %}
+    <div class="row">
+        {% for item in submission_data %}
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>
+                        <strong>Submission</strong>
+                        <small class="ms-2">#{{ forloop.counter }}</small>
+                    </span>
+                    <small>{{ item.submission.submitted_at|date:"M d, Y g:i A" }}</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Category</th>
+                                    <th class="text-end">Allocation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for allocation in item.allocations %}
+                                <tr>
+                                    <td>
+                                        <span class="badge rounded-pill" style="background-color: {{ allocation.category.color }}; width: 10px; height: 10px; display: inline-block;"></span>
+                                        {{ allocation.category.name }}
+                                    </td>
+                                    <td class="text-end">
+                                        <strong>{{ allocation.percentage }}%</strong>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">
+                            Session: {{ item.submission.session_key|slice:":8" }}...
+                        </small>
+                        <a href="{% url 'results' item.submission.session_key %}" class="btn btn-sm btn-outline-primary">
+                            View Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="alert alert-info mt-4">
+        <strong>💡 Tip:</strong> Your submission history is stored in a cookie on your device. 
+        If you clear your browser cookies, your history will be reset.
+    </div>
+{% else %}
+    <div class="alert alert-warning text-center">
+        <h4>No submissions found</h4>
+        <p>Start by <a href="{% url 'allocate' %}" class="alert-link">creating your first allocation</a>!</p>
+    </div>
+{% endif %}
+
+<div class="text-center mt-4">
+    <a href="{% url 'allocate' %}" class="btn btn-primary me-2">
+        <span class="me-1">➕</span> New Allocation
+    </a>
+    <a href="{% url 'aggregate' %}" class="btn btn-outline-secondary">
+        <span class="me-1">📈</span> View Aggregate Results
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "allocator/base.html" %}
+
+{% block title %}Your Allocation Results{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+    <h1 class="mb-3">✅ Your Tax Allocation</h1>
+    <p class="lead text-muted">Thank you for sharing how you'd allocate your tax dollars!</p>
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h4 class="card-title text-center mb-3">Your Allocation Pie Chart</h4>
+                <div class="chart-container">
+                    <canvas id="allocationChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Your Breakdown</h4>
+                <div class="list-group list-group-flush">
+            {% for allocation in allocations %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <div style="width: 20px; height: 20px; background-color: {{ allocation.category.color }}; border-radius: 3px; margin-right: 10px;"></div>
+                    <span>{{ allocation.category.name }}</span>
+                </div>
+                <span class="badge bg-primary rounded-pill">{{ allocation.percentage }}%</span>
+            </div>
+            {% endfor %}
+                </div>
+                
+                <div class="mt-4">
+                    <a href="{% url 'aggregate' %}" class="btn btn-info w-100">
+                        📊 View Aggregate Results
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const ctx = document.getElementById('allocationChart').getContext('2d');
+    const chartData = {{ chart_data|safe }};
+    
+    // Parse the JSON data
+    const parsedData = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+    
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: parsedData.labels,
+            datasets: [{
+                data: parsedData.data,
+                backgroundColor: parsedData.colors,
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 1500,
+                easing: 'easeInOutQuart'
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 13,
+                            family: "'Segoe UI', system-ui, sans-serif"
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toFixed(2) + '%';
+                        }
+                    }
+                },
+                title: {
+                    display: false
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                intersect: true
+            }
+        }
+    });
+    
+    // Animate list items
+    const listItems = document.querySelectorAll('.list-group-item');
+    listItems.forEach((item, index) => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            item.style.transition = 'all 0.4s ease';
+            item.style.opacity = '1';
+            item.style.transform = 'translateX(0)';
+        }, 100 * index);
+    });
+</script>
+{% endblock %}

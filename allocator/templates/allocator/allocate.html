@@ -1,0 +1,166 @@
+{% extends "allocator/base.html" %}
+
+{% block title %}Allocate Your Tax Dollars{% endblock %}
+
+{% block content %}
+<h1 class="text-center mb-4">How Would You Allocate Your Tax Dollars?</h1>
+<p class="lead text-center text-muted mb-4">
+    Distribute 100% of your tax dollars across budget categories to see where you'd prioritize spending.
+</p>
+
+{% if previous_submissions %}
+<div class="alert alert-info d-flex justify-content-between align-items-center">
+    <span>
+        <strong>👤 Welcome back!</strong> You have {{ previous_submissions.count }} previous submission{{ previous_submissions.count|pluralize }}.
+    </span>
+    <a href="{% url 'history' %}" class="btn btn-sm btn-outline-primary">View History</a>
+</div>
+{% endif %}
+
+<form method="post" id="allocationForm">
+    {% csrf_token %}
+    
+    {% if form.non_field_errors %}
+        <div class="alert alert-danger">
+            {{ form.non_field_errors }}
+        </div>
+    {% endif %}
+    
+    <div class="row">
+        {% for field in form %}
+        <div class="col-md-6 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <label for="{{ field.id_for_label }}" class="form-label mb-0">
+                    {{ field.label }}
+                </label>
+                <span class="badge bg-primary" id="value-{{ field.auto_id }}" style="font-size: 1rem; min-width: 65px;">0.00%</span>
+            </div>
+            <input type="range" 
+                   class="form-range allocation-slider" 
+                   id="slider-{{ field.auto_id }}" 
+                   min="0" 
+                   max="100" 
+                   step="0.5" 
+                   value="0"
+                   data-input-id="{{ field.auto_id }}">
+            {{ field }}
+            {% if field.errors %}
+                <div class="text-danger small">{{ field.errors }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="card bg-light mt-4 mb-4">
+        <div class="card-body">
+            <div class="text-center mb-3">
+                <p class="mb-2">Total Allocation:</p>
+                <div id="totalDisplay" class="invalid">0.00%</div>
+                <small class="text-muted">Must equal exactly 100%</small>
+            </div>
+            <div class="progress" style="height: 25px;">
+                <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">
+                    <span id="progressText"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+            Submit Allocation
+        </button>
+    </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Get all sliders and hidden inputs
+    const sliders = document.querySelectorAll('.allocation-slider');
+    const inputs = document.querySelectorAll('.allocation-input');
+    const totalDisplay = document.getElementById('totalDisplay');
+    const submitBtn = document.getElementById('submitBtn');
+    
+    // Hide the actual number inputs (we'll use sliders instead)
+    inputs.forEach(input => {
+        input.style.display = 'none';
+    });
+    
+    function updateTotal() {
+        let total = 0;
+        inputs.forEach(input => {
+            const value = parseFloat(input.value) || 0;
+            total += value;
+        });
+        
+        totalDisplay.textContent = total.toFixed(2) + '%';
+        
+        // Update progress bar
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const percentage = Math.min(total, 100);
+        progressBar.style.width = percentage + '%';
+        progressBar.setAttribute('aria-valuenow', percentage);
+        
+        // Color the progress bar based on total
+        if (Math.abs(total - 100) < 0.01) {
+            progressBar.className = 'progress-bar bg-success';
+            progressText.textContent = '✓ Ready to submit';
+            totalDisplay.classList.remove('invalid');
+            totalDisplay.classList.add('valid');
+            submitBtn.disabled = false;
+        } else if (total > 100) {
+            progressBar.className = 'progress-bar bg-danger';
+            progressText.textContent = 'Over 100%';
+            totalDisplay.classList.remove('valid');
+            totalDisplay.classList.add('invalid');
+            submitBtn.disabled = true;
+        } else {
+            progressBar.className = 'progress-bar bg-warning';
+            progressText.textContent = (100 - total).toFixed(2) + '% remaining';
+            totalDisplay.classList.remove('valid');
+            totalDisplay.classList.add('invalid');
+            submitBtn.disabled = true;
+        }
+    }
+    
+    // Sync sliders with hidden inputs and update displays
+    sliders.forEach(slider => {
+        const inputId = slider.dataset.inputId;
+        const input = document.getElementById(inputId);
+        const valueDisplay = document.getElementById('value-' + inputId);
+        
+        // Update when slider changes
+        slider.addEventListener('input', function() {
+            const value = parseFloat(this.value).toFixed(2);
+            input.value = value;
+            valueDisplay.textContent = value + '%';
+            updateTotal();
+        });
+        
+        // Initialize slider from input value
+        if (input.value) {
+            slider.value = input.value;
+            valueDisplay.textContent = parseFloat(input.value).toFixed(2) + '%';
+        }
+    });
+    
+    // Initial calculation
+    updateTotal();
+    
+    // Prevent form submission if total isn't 100
+    document.getElementById('allocationForm').addEventListener('submit', function(e) {
+        let total = 0;
+        inputs.forEach(input => {
+            total += parseFloat(input.value) || 0;
+        });
+        
+        if (Math.abs(total - 100) >= 0.01) {
+            e.preventDefault();
+            alert('Total allocation must equal 100%. Current total: ' + total.toFixed(2) + '%');
+        }
+    });
+</script>
+{% endblock %}

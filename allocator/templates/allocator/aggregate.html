@@ -1,0 +1,141 @@
+{% extends "allocator/base.html" %}
+
+{% block title %}Aggregate Results{% endblock %}
+
+{% block content %}
+<div class="text-center mb-4">
+    <h1 class="mb-3">🌎 Aggregate Allocation Results</h1>
+    <p class="lead text-muted">Average allocations from all <strong>{{ total_submissions|default:0 }}</strong> submission{{ total_submissions|pluralize }}</p>
+    <p class="text-muted"><small>⚡ Results cached for optimal performance</small></p>
+</div>
+
+{% if total_submissions > 0 %}
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h4 class="card-title text-center mb-3">Community Average</h4>
+                <div class="chart-container">
+                    <canvas id="aggregateChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-body">
+                <h4 class="card-title mb-3">Average Breakdown</h4>
+                <div class="list-group list-group-flush">
+            {% for item in aggregate_data %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <div style="width: 20px; height: 20px; background-color: {{ item.color }}; border-radius: 3px; margin-right: 10px;"></div>
+                    <span>{{ item.category }}</span>
+                </div>
+                <span class="badge bg-success rounded-pill">{{ item.avg_percentage }}%</span>
+            </div>
+            {% endfor %}
+                </div>
+                
+                <div class="alert alert-info mt-4 mb-0">
+                    <strong>💡 How it works:</strong> These percentages represent the average allocation across all user submissions. The aggregate results are cached for 5 minutes to handle high traffic efficiently.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-warning text-center">
+    <h4>No submissions yet!</h4>
+    <p>Be the first to share how you'd allocate your tax dollars.</p>
+    <a href="{% url 'allocate' %}" class="btn btn-primary">Make First Allocation</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if total_submissions > 0 %}
+<script>
+    const ctx = document.getElementById('aggregateChart').getContext('2d');
+    const chartData = {{ chart_data|safe }};
+    
+    // Parse the JSON data
+    const parsedData = typeof chartData === 'string' ? JSON.parse(chartData) : chartData;
+    
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: parsedData.labels,
+            datasets: [{
+                data: parsedData.data,
+                backgroundColor: parsedData.colors,
+                borderWidth: 3,
+                borderColor: '#fff',
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                animateRotate: true,
+                animateScale: true,
+                duration: 1500,
+                easing: 'easeInOutQuart'
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 15,
+                        font: {
+                            size: 13,
+                            family: "'Segoe UI', system-ui, sans-serif"
+                        },
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: {
+                        size: 14,
+                        weight: 'bold'
+                    },
+                    bodyFont: {
+                        size: 13
+                    },
+                    callbacks: {
+                        label: function(context) {
+                            return context.label + ': ' + context.parsed.toFixed(2) + '% (avg)';
+                        }
+                    }
+                },
+                title: {
+                    display: false
+                }
+            },
+            interaction: {
+                mode: 'nearest',
+                intersect: true
+            }
+        }
+    });
+    
+    // Animate list items
+    const listItems = document.querySelectorAll('.list-group-item');
+    listItems.forEach((item, index) => {
+        item.style.opacity = '0';
+        item.style.transform = 'translateX(-20px)';
+        setTimeout(() => {
+            item.style.transition = 'all 0.4s ease';
+            item.style.opacity = '1';
+            item.style.transform = 'translateX(0)';
+        }, 100 * index);
+    });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,115 @@
+name: tadpollster
+region: nyc
+
+domains:
+  - domain: tadpollster.com
+    type: PRIMARY
+    wildcard: false
+  - domain: www.tadpollster.com
+    type: ALIAS
+    wildcard: false
+
+services:
+  - name: web
+    github:
+      repo: savantlab/taxbudget
+      branch: main
+      deploy_on_push: true
+    
+    dockerfile_path: Dockerfile
+    
+    envs:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+      - key: REDIS_URL
+        value: ${redis.DATABASE_URL}
+      - key: ALLOWED_HOSTS
+        value: "tadpollster.com,www.tadpollster.com"
+      - key: CELERY_BROKER_URL
+        value: ${redis.DATABASE_URL}
+      - key: CELERY_RESULT_BACKEND
+        value: ${redis.DATABASE_URL}
+    
+    http_port: 8000
+    
+    instance_count: 2
+    instance_size_slug: basic-xs
+    
+    health_check:
+      http_path: /
+      initial_delay_seconds: 60
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+
+  - name: celery-worker
+    github:
+      repo: savantlab/taxbudget
+      branch: main
+    
+    dockerfile_path: Dockerfile
+    
+    run_command: celery -A taxbudget worker --loglevel=info --concurrency=2
+    
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+      - key: REDIS_URL
+        value: ${redis.DATABASE_URL}
+      - key: CELERY_BROKER_URL
+        value: ${redis.DATABASE_URL}
+      - key: CELERY_RESULT_BACKEND
+        value: ${redis.DATABASE_URL}
+      - key: SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+    
+    instance_count: 1
+    instance_size_slug: basic-xs
+
+workers:
+  - name: celery-beat
+    github:
+      repo: savantlab/taxbudget
+      branch: main
+    
+    dockerfile_path: Dockerfile
+    
+    run_command: celery -A taxbudget beat --loglevel=info
+    
+    envs:
+      - key: DATABASE_URL
+        value: ${db.DATABASE_URL}
+      - key: REDIS_URL
+        value: ${redis.DATABASE_URL}
+      - key: CELERY_BROKER_URL
+        value: ${redis.DATABASE_URL}
+      - key: CELERY_RESULT_BACKEND
+        value: ${redis.DATABASE_URL}
+      - key: SECRET_KEY
+        scope: RUN_TIME
+        type: SECRET
+    
+    instance_count: 1
+    instance_size_slug: basic-xxs
+
+databases:
+  - name: db
+    engine: PG
+    version: "15"
+    size: db-s-1vcpu-1gb
+    num_nodes: 1
+    production: true
+
+  - name: redis
+    engine: REDIS
+    version: "7"
+    size: db-s-1vcpu-1gb
+    num_nodes: 1
+    production: true
