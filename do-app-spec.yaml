@@ -57,8 +57,6 @@ workers:
     run_command: celery -A taxbudget worker --loglevel=info --concurrency=2
     
     envs:
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
@@ -82,8 +80,6 @@ workers:
     run_command: celery -A taxbudget beat --loglevel=info
     
     envs:
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: CELERY_BROKER_URL
