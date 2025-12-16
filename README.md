@@ -253,10 +253,10 @@ This app is production-ready and optimized for scale:
 
 ### Live Deployment Performance Review
 
-**Deployment:** https://tadpollster-5n42q.ondigitalocean.app/  
+**Deployment:** https://tadpollster-5n42q.ondigitalocean.app/ (https://tadpollster.com pending DNS)  
 **Platform:** DigitalOcean App Platform  
 **Date:** December 16, 2024  
-**Status:** ✅ Production-ready
+**Status:** ✅ Production-ready | 🌐 Custom domain configured
 
 #### Infrastructure
 - **Web Service:** Gunicorn with 4 workers (basic-xs instance)
@@ -295,12 +295,18 @@ This app is production-ready and optimized for scale:
 5. Health checks verify app is serving traffic
 6. Old instances terminated after new ones are healthy
 
+#### DNS Configuration
+- **Custom Domain:** tadpollster.com
+- **DNS Records:** A records (172.66.0.96, 162.159.140.98) + CNAME for www
+- **Status:** Configured, awaiting propagation (5-30 minutes)
+- **SSL:** Let's Encrypt certificates auto-provisioned once DNS resolves
+- **CDN:** Cloudflare edge network for global distribution
+
 #### Next Steps for Scale
 - Switch to managed PostgreSQL for multi-instance deployments
 - Enable Redis clustering for high availability
 - Add Sentry for error tracking
 - Implement Prometheus metrics
-- Configure custom domain (tadpollster.com)
 
 **Ready to handle thousands of concurrent users with sub-100ms response times.**
 
