@@ -1,13 +1,6 @@
 name: taxbudget
 region: nyc
 
-databases:
-  - name: db
-    engine: PG
-    version: "16"
-    production: false
-    cluster_name: taxbudget-db
-
 # domains:
 #   - domain: yourdomain.com
 #     type: PRIMARY
@@ -31,8 +24,6 @@ services:
       - key: SECRET_KEY
         scope: RUN_TIME
         type: SECRET
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
       - key: REDIS_URL
         value: "redis://159.65.255.161:6379/0"
       - key: ALLOWED_HOSTS
