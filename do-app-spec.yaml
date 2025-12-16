@@ -37,14 +37,6 @@ services:
     
     instance_count: 1
     instance_size_slug: basic-xs
-    
-    health_check:
-      http_path: /
-      initial_delay_seconds: 90
-      period_seconds: 30
-      timeout_seconds: 10
-      success_threshold: 1
-      failure_threshold: 5
 
 workers:
   - name: celery-worker
