@@ -1,6 +1,18 @@
 # Django Deployment Checklist for DigitalOcean App Platform
 
-This checklist ensures smooth deployments of Django apps to DigitalOcean App Platform.
+⚠️ **WARNING: Based on Real Deployment Experience (Dec 2024)**  
+This checklist documents lessons learned from a 13-hour deployment that encountered multiple platform limitations.
+
+## Platform Limitations to Know
+
+1. **PostgreSQL 15+ Broken** - Managed PostgreSQL has permission issues with Django migrations
+2. **Redis Not Managed** - DigitalOcean removed managed Redis from App Platform in 2024
+3. **Environment Variables** - Dashboard overrides spec file silently, causing conflicts
+4. **Poor Observability** - Error messages are opaque, logs often hang
+
+**Recommendation:** For production Django apps, consider AWS ECS, GCP Cloud Run, or Docker Compose on DigitalOcean Droplets instead of App Platform.
+
+This checklist documents what works despite platform limitations.
 
 ## Pre-Deployment Checklist
 
@@ -91,6 +103,9 @@ set -e
 echo "Running migrations..."
 python manage.py migrate --noinput
 
+echo "Populating budget categories..."
+python manage.py populate_categories
+
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
@@ -112,12 +127,8 @@ Create or update `do-app-spec.yaml`:
 name: yourapp
 region: nyc
 
-databases:
-  - name: db
-    engine: PG
-    version: "16"
-    production: false
-    cluster_name: yourapp-db
+# NO databases section - using SQLite due to PostgreSQL 15+ permission issues
+# See Platform Limitations section above
 
 services:
   - name: web
@@ -132,16 +143,15 @@ services:
       - key: DEBUG
         value: "False"
       - key: SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}  # Managed database
+        value: "your-generated-secret-key-here"  # Generate with openssl rand -base64 48
       - key: ALLOWED_HOSTS
         value: "*"  # Or specific domains: "app.com,www.app.com"
+      - key: REDIS_URL
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"  # Must use PUBLIC IP
       - key: CELERY_BROKER_URL
-        value: "redis://PUBLIC_IP:6379/0"  # If using external Redis
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
       - key: CELERY_RESULT_BACKEND
-        value: "redis://PUBLIC_IP:6379/0"
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
     
     http_port: 8000
     instance_count: 1
@@ -166,18 +176,39 @@ workers:
     run_command: celery -A yourproject worker --loglevel=info --concurrency=2
     
     envs:
-      - key: DATABASE_URL
-        value: ${db.DATABASE_URL}
+      - key: REDIS_URL
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
       - key: CELERY_BROKER_URL
-        value: "redis://PUBLIC_IP:6379/0"
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
       - key: CELERY_RESULT_BACKEND
-        value: "redis://PUBLIC_IP:6379/0"
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
       - key: SECRET_KEY
-        scope: RUN_TIME
-        type: SECRET
+        value: "your-generated-secret-key-here"
     
     instance_count: 1
     instance_size_slug: basic-xs
+
+  - name: celery-beat
+    github:
+      repo: username/repo
+      branch: main
+    
+    dockerfile_path: Dockerfile.prod
+    
+    run_command: celery -A yourproject beat --loglevel=info
+    
+    envs:
+      - key: REDIS_URL
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
+      - key: CELERY_BROKER_URL
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
+      - key: CELERY_RESULT_BACKEND
+        value: "redis://REDIS_DROPLET_PUBLIC_IP:6379/0"
+      - key: SECRET_KEY
+        value: "your-generated-secret-key-here"
+    
+    instance_count: 1
+    instance_size_slug: basic-xxs
 ```
 
 ### 5. Dependencies
@@ -187,14 +218,16 @@ Ensure `requirements.txt` includes:
 
 ```
 Django>=6.0,<7.0
-dj-database-url>=2.1.0  # ← CRITICAL for DATABASE_URL parsing
-psycopg2-binary>=2.9.0
 gunicorn
 celery>=5.3.0  # If using
 redis>=5.0.0   # If using
+
+# Only if using PostgreSQL (currently broken on App Platform):
+# dj-database-url>=2.1.0
+# psycopg2-binary>=2.9.0
 ```
 
-**⚠️ MUST HAVE:** `dj-database-url` is essential for App Platform database connection!
+**Note:** `dj-database-url` and `psycopg2-binary` are only needed if using PostgreSQL. For SQLite deployment (recommended due to PostgreSQL issues), they're not required.
 
 ## Deployment Steps
 
@@ -310,6 +343,39 @@ curl -I https://APP_URL.ondigitalocean.app
 doctl apps create-deployment APP_ID --force-rebuild
 ```
 
+### Issue 6: Environment Variable Conflicts (CRITICAL)
+**Cause:** Dashboard environment variables override app spec configuration  
+**Symptoms:**
+- App spec changes don't take effect
+- "UnknownSchemeError: Scheme '://' is unknown" (empty DATABASE_URL in dashboard)
+- 400 Bad Request (wrong ALLOWED_HOSTS in dashboard)
+
+**Solution:**
+1. Go to DigitalOcean Dashboard → Apps → Your App → Settings
+2. Check Environment Variables section
+3. Delete ANY variables that conflict with your app spec
+4. Use app spec as single source of truth
+5. Force redeploy after cleaning up dashboard variables
+
+**Prevention:** Never set environment variables in both dashboard AND app spec
+
+### Issue 7: Missing Database Population
+**Cause:** Custom management commands not run automatically  
+**Solution:** Add to `entrypoint-prod.sh`:
+```bash
+echo "Populating budget categories..."
+python manage.py populate_categories
+```
+
+### Issue 8: SECRET_KEY Empty or Not Set
+**Cause:** SECRET_KEY type: SECRET requires manual dashboard configuration  
+**Solution:** Use plain value in app spec instead:
+```yaml
+- key: SECRET_KEY
+  value: "generated-secret-key-here"
+```
+Generate with: `openssl rand -base64 48`
+
 ## Post-Deployment
 
 ### DNS Configuration
@@ -383,14 +449,20 @@ doctl apps update APP_ID --spec do-app-spec.yaml
 Before deploying, verify:
 
 - [ ] `settings.py` reads `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS` from environment
-- [ ] `settings.py` uses `dj_database_url.config()` for DATABASE_URL
+- [ ] `settings.py` handles missing DATABASE_URL gracefully (defaults to SQLite)
 - [ ] `Dockerfile.prod` exists and doesn't wait for db/redis hostnames
 - [ ] `entrypoint-prod.sh` exists with no host checks
+- [ ] `entrypoint-prod.sh` includes `python manage.py populate_categories` (or equivalent data seeding)
 - [ ] `do-app-spec.yaml` references `Dockerfile.prod` (not `Dockerfile`)
-- [ ] `requirements.txt` includes `dj-database-url`
-- [ ] Database defined in app spec or DATABASE_URL points to external DB
-- [ ] Redis uses PUBLIC IP if using external droplet
+- [ ] `requirements.txt` includes gunicorn, celery, redis
+- [ ] NO databases section in app spec (using SQLite due to PostgreSQL issues)
+- [ ] Redis droplet created with PUBLIC IP documented
+- [ ] All Redis URLs use PUBLIC IP address (not private IP, not hostname)
 - [ ] `ALLOWED_HOSTS` set to `*` or specific domains
-- [ ] SECRET_KEY configured as encrypted environment variable
+- [ ] SECRET_KEY generated and added to app spec as plain value (not type: SECRET)
+- [ ] Dashboard environment variables checked and cleared (conflicts with app spec)
+- [ ] Health checks disabled or properly configured
 
-Follow this checklist for smooth Django deployments! 🚀
+**Reality Check:** Expect 2-4 hours for first deployment, not 15 minutes. Platform has significant limitations.
+
+Follow this checklist to avoid the pitfalls we encountered! 🚀

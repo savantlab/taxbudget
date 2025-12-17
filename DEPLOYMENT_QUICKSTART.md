@@ -1,7 +1,18 @@
 # Deployment Quickstart
-## Get tadpollster.com Live in 15 Minutes
+## Django on DigitalOcean App Platform
 
-This guide will get your Tax Budget Allocator deployed to DigitalOcean as quickly as possible.
+⚠️ **REALITY CHECK:** This guide originally claimed "15 minutes" but actual deployment took 13 hours due to platform limitations. Realistic timeline: **2-4 hours** for first deployment.
+
+## Platform Issues You Will Encounter
+
+1. **PostgreSQL 15+ Broken** - Managed database has permission errors with Django
+2. **No Managed Redis** - DigitalOcean removed Redis from App Platform (requires manual droplet)
+3. **Environment Variable Conflicts** - Dashboard silently overrides app spec
+4. **Poor Error Messages** - Logs are opaque, CLI tools unreliable
+
+**Recommendation:** For production Django apps, consider AWS ECS, GCP Cloud Run, or Docker Compose on DigitalOcean Droplets instead.
+
+This guide documents what works despite the limitations.
 
 ---
 
@@ -47,12 +58,52 @@ git push -u origin main
 
 ---
 
-## Deploy to DigitalOcean (5 minutes)
+## Create Redis Droplet First (10 minutes)
 
-### Option A: App Platform (Easiest - Recommended)
+**REQUIRED:** App Platform no longer provides managed Redis
 
 ```bash
-# Deploy app
+# Create Redis droplet
+doctl compute droplet create yourapp-redis \
+  --image ubuntu-22-04-x64 \
+  --size s-1vcpu-1gb \
+  --region nyc3 \
+  --ssh-keys $(doctl compute ssh-key list --format ID --no-header)
+
+# Get PUBLIC IP (you'll need this)
+REDIS_IP=$(doctl compute droplet get yourapp-redis --format PublicIPv4 --no-header)
+echo "Redis IP: $REDIS_IP"
+
+# SSH and install Redis
+doctl compute ssh yourapp-redis
+
+# On droplet:
+sudo apt update && sudo apt install redis-server -y
+sudo sed -i 's/bind 127.0.0.1 ::1/bind 0.0.0.0/' /etc/redis/redis.conf
+sudo systemctl restart redis-server
+
+# Test (back on your machine)
+redis-cli -h $REDIS_IP ping  # Should return PONG
+```
+
+**⚠️ SECURITY WARNING:** Redis is exposed on public internet. For production, use firewall rules or VPC.
+
+## Deploy to DigitalOcean (30-60 minutes)
+
+### Option A: App Platform (Using SQLite)
+
+```bash
+# 1. Update do-app-spec.yaml with Redis IP
+sed -i '' "s/REDIS_DROPLET_PUBLIC_IP/$REDIS_IP/g" do-app-spec.yaml
+
+# 2. Generate SECRET_KEY
+SECRET_KEY=$(openssl rand -base64 48)
+echo "SECRET_KEY: $SECRET_KEY"
+
+# 3. Update do-app-spec.yaml with SECRET_KEY
+# (Manually edit do-app-spec.yaml and replace "your-generated-secret-key-here" with $SECRET_KEY)
+
+# 4. Deploy app
 doctl apps create --spec do-app-spec.yaml
 
 # Get app ID (will be shown in output)
@@ -62,25 +113,13 @@ APP_ID=<your-app-id>
 doctl apps logs $APP_ID --type build --follow
 ```
 
-**Add SECRET_KEY via Dashboard:**
-1. Go to Apps → Your App → Settings → Environment Variables
-2. Click "Edit" on web service
-3. Find SECRET_KEY, click "Edit"
-4. Paste your secret key (generate with the command below)
-5. Repeat for celery-worker and celery-beat
-6. Redeploy
+**⚠️ CRITICAL:** Make sure your `do-app-spec.yaml`:
+- Has NO `databases:` section (PostgreSQL is broken)
+- Uses Redis PUBLIC IP in all REDIS_URL, CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+- Has SECRET_KEY as plain value, not `type: SECRET`
+- Has `ALLOWED_HOSTS: "*"` or your actual domain
 
-```bash
-# Generate SECRET_KEY
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
-```
-
-### Option B: Droplet + Managed Databases
-
-```bash
-# 1. Create managed databases
-doctl databases create tadpollster-db --engine pg --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1
-doctl databases create tadpollster-redis --engine redis --region nyc3 --size db-s-1vcpu-1gb --num-nodes 1
+### Option B: Full Droplet Deployment (More Control)
 
 # 2. Create droplet
 doctl compute droplet create tadpollster \
@@ -227,25 +266,37 @@ dig tadpollster.com
 # Wait up to 48 hours for DNS propagation (usually 5-30 minutes)
 ```
 
-### App won't start
+### App won't start (500 Internal Server Error)
 ```bash
-# Check logs
+# Check logs (may hang - use dashboard web UI instead)
 doctl apps logs $APP_ID --type run --follow
 
 # Common issues:
-# - SECRET_KEY not set (add via dashboard)
-# - Database not ready (wait 2-3 minutes after creation)
-# - GitHub repo not accessible (make public or add deploy key)
+# 1. SECRET_KEY empty or not set
+#    Solution: Add to app spec as plain value, not type: SECRET
+#
+# 2. Environment variable conflicts
+#    Solution: Check dashboard Settings → Environment Variables
+#    Delete any variables set in dashboard that conflict with app spec
+#
+# 3. Missing database population
+#    Solution: Add "python manage.py populate_categories" to entrypoint-prod.sh
+#
+# 4. ALLOWED_HOSTS misconfigured
+#    Solution: Set to "*" in app spec, check dashboard hasn't overridden it
+#
+# 5. Redis connection failed
+#    Solution: Make sure using PUBLIC IP, not private IP or hostname
 ```
 
-### Database errors
-```bash
-# Verify connection
-doctl databases connection <db-id>
+### Database errors (PostgreSQL)
+**Note:** Managed PostgreSQL is currently broken on App Platform due to permission issues.
 
-# Run migrations manually
-doctl apps create-deployment $APP_ID
-```
+If you see "permission denied for schema public", switch to SQLite:
+1. Remove `databases:` section from do-app-spec.yaml
+2. Remove DATABASE_URL from environment variables
+3. Let Django use SQLite (default in settings.py)
+4. Redeploy
 
 ---
 
@@ -275,21 +326,20 @@ doctl balance get
 
 ## What's Running?
 
-### App Platform Deployment:
-- **Web** (2 instances): Django + Gunicorn → https://tadpollster.com
+### App Platform Deployment (Actual):
+- **Web** (1 instance): Django + Gunicorn → https://tadpollster.com
 - **Celery Worker**: Background task processing
 - **Celery Beat**: Scheduled tasks (cache updates)
-- **PostgreSQL**: Primary database (15GB)
-- **Redis**: Cache + Celery broker
+- **SQLite**: Database (in-container, not managed PostgreSQL due to bugs)
+- **Redis Droplet**: Cache + Celery broker ($6/month)
 
-**Cost**: ~$45/month
+**Cost**: $45/month App Platform + $6/month Redis droplet = **$51/month**
 
-### Droplet Deployment:
+### Droplet Deployment (Alternative):
 - **Droplet**: 2 vCPU, 4GB RAM (all services via Docker)
-- **PostgreSQL**: Managed database (15GB)
-- **Redis**: Managed cache
+- **No managed databases**: Run PostgreSQL + Redis in containers
 
-**Cost**: ~$54/month
+**Cost**: ~$24-48/month (more control, less convenience)
 
 ---
 
@@ -316,6 +366,9 @@ For detailed documentation, see:
 
 **🚀 Your Tax Budget Allocator is now live at https://tadpollster.com!**
 
-**Total Time**: ~15 minutes  
-**Monthly Cost**: $45-66  
-**Scalability**: Handles 10M+ users at O(1) complexity
+**Total Time**: 2-4 hours (first deployment), ~30 minutes (subsequent)  
+**Monthly Cost**: $51 (App Platform + Redis droplet)  
+**Scalability**: Handles 10M+ users at O(1) complexity  
+**Reality**: Deployment is harder than advertised due to platform limitations  
+
+**For future projects:** Consider AWS ECS/Fargate, GCP Cloud Run, or Docker Compose on bare droplets for better PostgreSQL/Redis support.

@@ -1,9 +1,31 @@
 # DigitalOcean Deployment Guide
 ## Tax Budget Allocator on tadpollster.com
 
+⚠️ **CRITICAL: READ BEFORE DEPLOYING (Dec 2024 Update)**
+
+This guide was written before discovering major platform limitations. **Actual deployment took 13 hours** due to:
+
+1. **PostgreSQL 15+ Broken** - Managed PostgreSQL cannot be used with Django (permission errors)
+2. **Redis Removed** - DigitalOcean removed managed Redis from App Platform in 2024
+3. **Environment Conflicts** - Dashboard variables silently override app spec
+4. **Poor Observability** - Error messages are opaque, logs frequently hang
+
+**What Actually Works:**
+- **Database**: SQLite (in-container), NOT managed PostgreSQL
+- **Redis**: Manual droplet with PUBLIC IP, NOT managed Redis
+- **Config**: App spec only, avoid dashboard environment variables
+
+**Recommended Alternatives for Production:**
+- AWS ECS/Fargate with RDS + ElastiCache
+- GCP Cloud Run with Cloud SQL + Memorystore
+- Docker Compose on DigitalOcean Droplets
+
+**This guide documents the workarounds** that eventually succeeded.
+
 **Domain**: tadpollster.com  
-**Platform**: DigitalOcean App Platform + Managed Databases  
-**Tool**: doctl (DigitalOcean CLI)
+**Platform**: DigitalOcean App Platform (with significant limitations)  
+**Tool**: doctl (DigitalOcean CLI)  
+**Actual Cost**: $51/month (App Platform $45 + Redis droplet $6)
 
 ---
 
