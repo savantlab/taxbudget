@@ -153,7 +153,7 @@ The app uses custom domains configured via DNS records:
 
 3. DNS Records (DigitalOcean):
    ```bash
-   # Root domain - A records to Cloudflare IPs
+   # Root domain - A records to App Platform IPs
    @ A 162.159.140.98 (3600 TTL)
    @ A 172.66.0.96 (3600 TTL)
    
@@ -163,7 +163,7 @@ The app uses custom domains configured via DNS records:
 
 **Deployment Strategy**:
 - App Platform handles SSL/TLS automatically via Let's Encrypt
-- Traffic routes through Cloudflare (Cloudflare IPs in A records)
+- Traffic routes through DigitalOcean's CDN infrastructure
 - Zero-downtime deployments with rolling updates
 - Both HTTP and HTTPS supported (HTTPS enforced)
 
@@ -254,7 +254,7 @@ curl -I https://www.tadpollster.com
 - **Issue**: tadpollster.com domain not resolving despite nameservers being configured
 - **Root Cause**: Domain had nameservers pointing to DigitalOcean but no A/CNAME records created
 - **Solution**: Created DNS records:
-  - A records for root domain pointing to Cloudflare IPs (162.159.140.98, 172.66.0.96)
+  - A records for root domain pointing to App Platform IPs (162.159.140.98, 172.66.0.96)
   - CNAME record for www subdomain pointing to tadpollster-5n42q.ondigitalocean.app
 - **Verification**: DNS propagation in progress (1-15 minutes typical)
 
