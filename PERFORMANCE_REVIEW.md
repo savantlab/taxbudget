@@ -129,13 +129,58 @@ docker-compose up
 ```
 
 ### Production (DigitalOcean)
-```bash
-# Automatic deployment via Git push to main
-git push origin main
 
-# Or manual update
+**Automatic Deployment Strategy**:
+The application uses DigitalOcean App Platform's native CI/CD with GitHub integration:
+
+```yaml
+# do-app-spec.yaml - Auto-deployment configuration
+services:
+  - name: web
+    github:
+      repo: savantlab/taxbudget
+      branch: main
+      deploy_on_push: true  # ✅ Auto-deploy enabled
+```
+
+**Deployment Process**:
+1. Push code to `main` branch:
+   ```bash
+   git add .
+   git commit -m "Your changes\n\nCo-Authored-By: Warp <agent@warp.dev>"
+   git push origin main
+   ```
+
+2. DigitalOcean automatically:
+   - Detects GitHub push event
+   - Builds Docker image from `Dockerfile.prod`
+   - Runs database migrations via `entrypoint-prod.sh`
+   - Deploys 3 services (web, celery-worker, celery-beat)
+   - Performs rolling update (zero-downtime)
+   - Routes traffic to new instances after health checks pass
+
+3. Monitor deployment:
+   ```bash
+   # Quick status check
+   ./check_deploy.sh
+   
+   # Detailed deployment list
+   doctl apps list-deployments 3b89d417-366d-43eb-908b-eacbb4f519dc
+   
+   # Follow logs in real-time
+   doctl apps logs 3b89d417-366d-43eb-908b-eacbb4f519dc --type run --follow
+   ```
+
+**Manual Update** (if needed):
+```bash
 doctl apps update 3b89d417-366d-43eb-908b-eacbb4f519dc --spec do-app-spec.yaml
 ```
+
+**Deployment Timeline**:
+- Build phase: ~1-1.5 minutes
+- Health checks: ~15-30 seconds
+- Total deployment: ~2 minutes
+- Zero downtime: Old instances serve traffic until new ones are healthy
 
 ### DNS Configuration (App Platform)
 
@@ -191,6 +236,8 @@ doctl compute domain records delete tadpollster.com <RECORD_ID>
 ```
 
 **Verification**:
+
+**Manual DNS Checks**:
 ```bash
 # Check DNS propagation
 dig tadpollster.com +short
@@ -203,6 +250,57 @@ dig @ns1.digitalocean.com tadpollster.com A
 curl -I https://tadpollster.com
 curl -I https://www.tadpollster.com
 ```
+
+**Automated DNS Verification Loop**:
+
+Use the `check_dns_propagation.py` script for continuous monitoring:
+
+```bash
+# Make executable
+chmod +x check_dns_propagation.py
+
+# Run DNS monitoring loop
+./check_dns_propagation.py
+```
+
+**What the script does**:
+1. Checks DNS resolution every 5 minutes
+2. Verifies nameserver records (ns1.digitalocean.com)
+3. Tests HTTPS accessibility
+4. Loops indefinitely until domain is fully accessible
+5. Reports status with timestamps
+
+**Script Features**:
+- ✅ Public DNS resolution check (`dig tadpollster.com`)
+- ✅ Nameserver record verification (`dig @ns1.digitalocean.com`)
+- ✅ HTTPS accessibility test (`curl -I https://tadpollster.com`)
+- ✅ Automatic retry with 5-minute intervals
+- ✅ Success notification when domain goes live
+- ✅ Clean Ctrl+C interrupt handling
+
+**Expected Output**:
+```
+======================================================================
+DNS Check #1 - 2024-12-19 03:30:00
+======================================================================
+
+1. Public DNS Resolution (tadpollster.com):
+   ✅ RESOLVED: 162.159.140.98, 172.66.0.96
+
+2. DigitalOcean Nameserver (ns1.digitalocean.com):
+   ✅ Records exist: 162.159.140.98, 172.66.0.96
+
+3. HTTPS Access (https://tadpollster.com):
+   ✅ ACCESSIBLE: HTTP/2 200
+
+🎉 SUCCESS! tadpollster.com is now live and accessible!
+```
+
+**Typical Propagation Time**:
+- Nameserver records: Instant (already configured)
+- Global DNS propagation: 1-15 minutes (typical)
+- SSL certificate issuance: 2-5 minutes (Let's Encrypt)
+- Total time to fully live: 5-20 minutes
 
 **App URLs**:
 - Production: https://tadpollster.com
@@ -269,6 +367,11 @@ curl -I https://www.tadpollster.com
 - ✅ Added Celery background processing
 - ✅ Fixed DNS resolution for local development
 - ✅ Documented environment-specific configuration
+- ✅ Scaled infrastructure (2× web instances, upgraded RAM)
+- ✅ Automated CI/CD via GitHub integration
+- ✅ Created DNS verification monitoring script
+- ✅ Documented deployment strategy and best practices
+- ✅ Created comprehensive AI instruction guide (WARP.md)
 
 ### Pending Improvements
 - [ ] Database sharding for time-based partitioning
