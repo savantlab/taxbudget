@@ -137,6 +137,78 @@ git push origin main
 doctl apps update 3b89d417-366d-43eb-908b-eacbb4f519dc --spec do-app-spec.yaml
 ```
 
+### DNS Configuration (App Platform)
+
+The app uses custom domains configured via DNS records:
+
+**Domain Setup**:
+1. Domains defined in `do-app-spec.yaml`:
+   - Primary: `tadpollster.com`
+   - Alias: `www.tadpollster.com`
+
+2. Nameservers (at registrar):
+   - ns1.digitalocean.com
+   - ns2.digitalocean.com
+   - ns3.digitalocean.com
+
+3. DNS Records (DigitalOcean):
+   ```bash
+   # Root domain - A records to Cloudflare IPs
+   @ A 162.159.140.98 (3600 TTL)
+   @ A 172.66.0.96 (3600 TTL)
+   
+   # WWW subdomain - CNAME to app
+   www CNAME tadpollster-5n42q.ondigitalocean.app (3600 TTL)
+   ```
+
+**Deployment Strategy**:
+- App Platform handles SSL/TLS automatically via Let's Encrypt
+- Traffic routes through Cloudflare (Cloudflare IPs in A records)
+- Zero-downtime deployments with rolling updates
+- Both HTTP and HTTPS supported (HTTPS enforced)
+
+**Managing DNS Records**:
+```bash
+# List current records
+doctl compute domain records list tadpollster.com
+
+# Add A record (root domain)
+doctl compute domain records create tadpollster.com \
+  --record-type A \
+  --record-name @ \
+  --record-data <IP_ADDRESS> \
+  --record-ttl 3600
+
+# Add CNAME record (subdomain)
+doctl compute domain records create tadpollster.com \
+  --record-type CNAME \
+  --record-name www \
+  --record-data tadpollster-5n42q.ondigitalocean.app. \
+  --record-ttl 3600
+
+# Delete record
+doctl compute domain records delete tadpollster.com <RECORD_ID>
+```
+
+**Verification**:
+```bash
+# Check DNS propagation
+dig tadpollster.com +short
+dig www.tadpollster.com +short
+
+# Query DO nameservers directly
+dig @ns1.digitalocean.com tadpollster.com A
+
+# Test HTTPS
+curl -I https://tadpollster.com
+curl -I https://www.tadpollster.com
+```
+
+**App URLs**:
+- Production: https://tadpollster.com
+- WWW: https://www.tadpollster.com
+- Direct (DO): https://tadpollster-5n42q.ondigitalocean.app
+
 ---
 
 ## Monitoring Checklist
@@ -175,6 +247,16 @@ doctl apps update 3b89d417-366d-43eb-908b-eacbb4f519dc --spec do-app-spec.yaml
 - **Status**: ✅ Fixed
 - **Date**: December 19, 2024
 - **Solution**: Created venv and documented setup process
+
+### 3. Missing DNS Records for Custom Domain (RESOLVED)
+- **Status**: ✅ Fixed
+- **Date**: December 19, 2024
+- **Issue**: tadpollster.com domain not resolving despite nameservers being configured
+- **Root Cause**: Domain had nameservers pointing to DigitalOcean but no A/CNAME records created
+- **Solution**: Created DNS records:
+  - A records for root domain pointing to Cloudflare IPs (162.159.140.98, 172.66.0.96)
+  - CNAME record for www subdomain pointing to tadpollster-5n42q.ondigitalocean.app
+- **Verification**: DNS propagation in progress (1-15 minutes typical)
 
 ---
 
