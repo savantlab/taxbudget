@@ -12,6 +12,9 @@ celery>=5.3.0
 redis>=5.0.0
 django-redis>=5.4.0
 
+# Rate Limiting
+django-ratelimit>=4.1.0
+
 # Optional: Better task monitoring
 flower>=2.0.1  # Celery monitoring dashboard
 

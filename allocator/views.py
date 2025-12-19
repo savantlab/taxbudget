@@ -4,6 +4,7 @@ from django.contrib import messages
 from django.db.models import Avg
 from django.core.cache import cache
 from django.utils import timezone
+from django_ratelimit.decorators import ratelimit
 from .models import BudgetCategory, UserAllocation, AllocationSubmission
 from .forms import TaxAllocationForm
 import uuid
@@ -20,6 +21,14 @@ def get_client_ip(request):
     return ip
 
 
+def ratelimit_key(group, request):
+    """Rate limit key: prefer user cookie, fallback to IP"""
+    user_id = request.COOKIES.get('tax_allocator_user_id')
+    if user_id:
+        return f'user:{user_id}'
+    return f'ip:{get_client_ip(request)}'
+
+
 def get_or_create_user_id(request):
     """Get user_id if consented; otherwise None."""
     consent = request.COOKIES.get('cookie_consent')
@@ -32,8 +41,20 @@ def get_or_create_user_id(request):
 
 
 @require_http_methods(["GET", "POST"])
+@ratelimit(key=ratelimit_key, rate='10/h', method='POST', block=False)
 def allocate_view(request):
     """Main allocation form view - handles both GET and POST"""
+    # Check if rate limited
+    if request.method == 'POST' and getattr(request, 'limited', False):
+        messages.error(request, 'Rate limit exceeded. You can submit up to 10 allocations per hour. Please try again later.')
+        form = TaxAllocationForm(request.POST)
+        categories = BudgetCategory.objects.all().order_by('display_order', 'name')
+        return render(request, 'allocator/allocate.html', {
+            'form': form,
+            'categories': categories,
+            'rate_limited': True,
+        })
+    
     if request.method == 'POST':
         form = TaxAllocationForm(request.POST)
         if form.is_valid():
