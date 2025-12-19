@@ -160,21 +160,101 @@ All form submissions use **POST requests** with CSRF protection. The form valida
 - Total allocation equals exactly 100%
 - Client-side and server-side validation
 
-## User Tracking
+## User Tracking & Rate Limiting
 
-The app uses **cookie-based anonymous tracking** to enable users to view their submission history:
+The app uses **cookie-based anonymous tracking** to enable users to view their submission history and prevent abuse.
 
-- **Cookie Name**: `tax_allocator_user_id`
-- **Value**: UUID (anonymous identifier)
-- **Expiration**: 1 year
-- **Security**: HttpOnly, SameSite=Lax
-- **Purpose**: Link submissions across visits without requiring login
+### Tracking Flow
 
-Users can clear their cookies at any time to reset tracking. No personal information is collected.
+#### Three Identifiers per Submission:
 
-**Cookie Consent**: On first visit, users see a GDPR/CCPA compliant banner with Accept/Decline options. The app works fully either way.
+1. **`session_key`** (per submission)
+   - New UUID for EACH submission
+   - Links all 10 category allocations together
+   - Used to display individual results page
 
-**See [COOKIES_FEATURE.md](COOKIES_FEATURE.md) and [COOKIE_CONSENT.md](COOKIE_CONSENT.md) for detailed documentation.**
+2. **`user_id`** (per user, persistent)
+   - Same UUID across ALL submissions by same user
+   - Stored in `tax_allocator_user_id` cookie (if consented)
+   - Used for submission history and rate limiting
+   - Expires: 1 year
+
+3. **`ip_address`** (backup tracking)
+   - Captured from `X-Forwarded-For` or `REMOTE_ADDR`
+   - Used when no cookie consent
+   - Fallback for rate limiting
+
+#### Complete User Journey:
+
+```
+First Visit:
+  User lands on site → No cookie exists
+  ↓
+  User accepts cookie consent banner
+  ↓
+  User submits allocation
+  ↓
+  user_id generated: "abc-123-def" (UUID)
+  ↓
+  Cookie set: tax_allocator_user_id=abc-123-def (1 year)
+  ↓
+  session_key generated: "xyz-789" (for this submission)
+
+Second Visit (same user):
+  User returns → Cookie exists: abc-123-def
+  ↓
+  User submits another allocation
+  ↓
+  Same user_id: "abc-123-def" ✓
+  ↓
+  New session_key: "ghi-456" (new submission)
+  ↓
+  History view shows both submissions linked by user_id
+```
+
+#### Privacy Modes:
+
+**With Cookie Consent:**
+- `user_id` stored in cookie and database
+- Can view submission history
+- Rate limited by persistent user_id
+- Submissions linked across visits
+
+**Without Cookie Consent:**
+- `user_id = None` in database
+- Cannot view submission history
+- Rate limited by IP address only
+- Each submission is "anonymous"
+
+### Rate Limiting
+
+Protects against spam, bots, and abuse:
+
+- **Limit**: 10 submissions per hour per user/IP
+- **Tracking**: By `user_id` (if cookie) or IP address (fallback)
+- **Storage**: Redis with automatic 1-hour TTL
+- **User Experience**: Friendly error message when exceeded
+- **Behind CDN**: Correctly extracts real IP from `X-Forwarded-For`
+
+**Implementation:**
+```python
+# Tracks by user cookie (preferred) or IP (fallback)
+@ratelimit(key=ratelimit_key, rate='10/h', method='POST')
+def allocate_view(request):
+    if getattr(request, 'limited', False):
+        # Show error: "Rate limit exceeded. Try again in 1 hour."
+```
+
+**Benefits:**
+- Prevents spam submissions
+- Protects Redis/Celery from queue flooding
+- Ensures fair usage across all users
+- Reduces infrastructure costs
+
+**See detailed documentation:**
+- [RATE_LIMITING.md](RATE_LIMITING.md) - Rate limiting configuration and monitoring
+- [COOKIES_FEATURE.md](COOKIES_FEATURE.md) - Cookie tracking implementation
+- [COOKIE_CONSENT.md](COOKIE_CONSENT.md) - GDPR/CCPA compliance
 
 ## API Endpoints
 
