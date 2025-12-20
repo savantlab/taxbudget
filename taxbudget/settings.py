@@ -29,6 +29,17 @@ DEBUG = os.environ.get('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
+# CSRF Settings - Required for Django 4.0+ with HTTPS
+CSRF_TRUSTED_ORIGINS = [
+    'https://tadpollster.com',
+    'https://www.tadpollster.com',
+    'https://tadpollster-5n42q.ondigitalocean.app',
+]
+
+# Allow additional origins from environment variable
+if os.environ.get('CSRF_TRUSTED_ORIGINS'):
+    CSRF_TRUSTED_ORIGINS.extend(os.environ.get('CSRF_TRUSTED_ORIGINS').split(','))
+
 
 # Application definition
 

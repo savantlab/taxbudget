@@ -205,6 +205,14 @@ python manage.py migrate
 - All POST requests must include CSRF token
 - Forms use `{% csrf_token %}` template tag
 - AJAX requests must include CSRF header
+- **CRITICAL**: `CSRF_TRUSTED_ORIGINS` must include all production domains (Django 4.0+ requirement)
+  ```python
+  CSRF_TRUSTED_ORIGINS = [
+      'https://tadpollster.com',
+      'https://www.tadpollster.com',
+      'https://tadpollster-5n42q.ondigitalocean.app',
+  ]
+  ```
 
 ### Input Validation
 - Always validate on both client and server
