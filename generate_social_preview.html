@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Social Preview Generator - Tax Budget Allocator</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            background: #f3f4f6;
+        }
+        h1 {
+            color: #10b981;
+        }
+        canvas {
+            border: 2px solid #10b981;
+            border-radius: 8px;
+            margin: 2rem 0;
+            display: block;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .instructions {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            margin-bottom: 2rem;
+        }
+        .instructions ol {
+            line-height: 1.8;
+        }
+        .download-btn {
+            background: #10b981;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 1rem 0;
+        }
+        .download-btn:hover {
+            background: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="instructions">
+        <h1>💰 Social Media Preview Image Generator</h1>
+        <p>This will generate a 1200×630px image for social media previews (Twitter/X, Facebook, LinkedIn).</p>
+        <ol>
+            <li>Click the "Download Image" button below</li>
+            <li>Save as <code>social-preview.png</code></li>
+            <li>Place in <code>taxbudget/allocator/static/</code></li>
+            <li>Run <code>python manage.py collectstatic --noinput</code></li>
+            <li>Deploy to production</li>
+        </ol>
+    </div>
+
+    <canvas id="canvas" width="1200" height="630"></canvas>
+    
+    <button class="download-btn" onclick="downloadImage()">📥 Download Image</button>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Gradient background (your brand colors)
+        const gradient = ctx.createLinearGradient(0, 0, 1200, 630);
+        gradient.addColorStop(0, '#10b981');
+        gradient.addColorStop(1, '#059669');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 1200, 630);
+        
+        // White rounded card in center
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        roundRect(ctx, 80, 130, 1040, 370, 20);
+        ctx.fill();
+        
+        // Emoji
+        ctx.font = '100px system-ui, -apple-system, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('💰', 600, 240);
+        
+        // Title
+        ctx.fillStyle = '#1f2937';
+        ctx.font = 'bold 68px system-ui, -apple-system, sans-serif';
+        ctx.fillText('Tax Budget Allocator', 600, 330);
+        
+        // Subtitle
+        ctx.font = '42px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#6b7280';
+        ctx.fillText('Where Would You Spend Your Tax Dollars?', 600, 400);
+        
+        // Domain
+        ctx.font = 'bold 36px system-ui, -apple-system, sans-serif';
+        ctx.fillStyle = '#10b981';
+        ctx.fillText('tadpollster.com', 600, 470);
+        
+        // Helper function for rounded rectangles
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+        
+        // Download function
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'social-preview.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
